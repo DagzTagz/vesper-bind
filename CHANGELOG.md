@@ -7,3 +7,4 @@
 - Writes one `vesper-bind/receipt/v1` file, mode 0600, or prints it with `--dry-run`.
 - Optional note appends to an existing vesper-runtime workspace without opening key files.
 - Does not call a network API and does not train a model.
+- README explains the two inputs, each command, the receipt fields, and the file modes in complete sentences.
