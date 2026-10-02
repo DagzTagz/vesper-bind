@@ -1,0 +1,35 @@
+{
+  "topic": "fixture",
+  "background": {
+    "topic": "fixture",
+    "summary": "Synthetic dry-run fixture.",
+    "sources": [
+      {
+        "id": "S1",
+        "title": "mock-notes",
+        "identifier": "mock://local/notes.md",
+        "snippet": "fixture",
+        "backend": "mock"
+      }
+    ]
+  },
+  "hypotheses": [
+    {
+      "id": "H1",
+      "statement": "BINDER-FIXTURE-DRY",
+      "rationale": "Fixture only.",
+      "domain": "mock"
+    }
+  ],
+  "verifications": [],
+  "tests": [],
+  "overall_notes": "Dry-run fixture. No model response.",
+  "meta": {
+    "phase": 2,
+    "engine_version": "fixture",
+    "dry_run": true,
+    "n_hypotheses": 1,
+    "retrieval_backend": "mock",
+    "retrieval_status": "ok_mock"
+  }
+}

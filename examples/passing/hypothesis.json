@@ -1,0 +1,31 @@
+{
+  "topic": "fixture",
+  "background": {
+    "topic": "fixture",
+    "summary": "Synthetic passing fixture. No live model output.",
+    "key_concepts": [],
+    "known_limitations": [],
+    "caveats": [],
+    "sources": [],
+    "grounding": "model_only"
+  },
+  "hypotheses": [
+    {
+      "id": "H1",
+      "statement": "BINDER-FIXTURE-STATEMENT",
+      "rationale": "Fixture only.",
+      "assumptions": [],
+      "domain": "tooling"
+    }
+  ],
+  "verifications": [],
+  "tests": [],
+  "overall_notes": "Fixture. Not a model response.",
+  "meta": {
+    "phase": 2,
+    "engine_version": "fixture",
+    "n_hypotheses": 1,
+    "retrieval_backend": "none",
+    "retrieval_status": "skipped"
+  }
+}

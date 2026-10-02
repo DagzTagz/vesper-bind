@@ -1,0 +1,91 @@
+# Local outputs, secrets, and research. Tests and examples/ stay tracked.
+
+# Receipts store absolute paths. Do not publish them.
+receipts/
+**/*-receipt.json
+
+# Copied workspaces and key files. Never open these; never upload them.
+workspace/
+**/workspace/
+state.json
+!examples/**/state.json
+identity/
+*.priv
+hmac.key
+
+# Secrets and env
+.env
+.env.*
+!.env.example
+.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+id_ecdsa*
+*.secret
+*.token
+secrets/
+credentials/
+credentials.json
+*.credentials.json
+auth.json
+.xai_api_key
+.aws/
+.gnupg/
+
+# Private notes, live runs, and hypothesis-engine outputs
+runs/
+hypothesis-corpus/
+corpus/
+local-corpus/
+my_notes/
+WHAT-WE-BUILT.md
+out.json
+live-out.json
+audit.jsonl
+*.jsonl
+
+# Agent session state
+.grok/
+**/.grok-session*
+**/session.json
+
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage/
+.tox/
+.nox/
+*.egg-info/
+dist/
+build/
+.python-version
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs and scratch
+*.log
+logs/
+tmp/
+temp/
+.cache/
+.direnv/

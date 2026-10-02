@@ -1,0 +1,11 @@
+vesper-bind
+Copyright 2026 DagzTagz contributors
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file.
+
+This repository does not vendor third-party source.
+It does not vendor dagztagz-hypothesis-engine, Dagz-Scaffold, or vesper-runtime.
+
+The program reads files the operator passes on the command line.
+It does not import those projects.

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "run_id": "passing",
+  "task": "fixture",
+  "persistence": 1,
+  "rigor": 1,
+  "verdict": "ACCEPT",
+  "quit_early": false,
+  "missing_evidence": false,
+  "waivers": [],
+  "artifacts": {
+    "plan.md": true,
+    "critic.md": true,
+    "evidence.md": true,
+    "score.json": true
+  },
+  "notes": "Synthetic passing fixture. No secrets."
+}

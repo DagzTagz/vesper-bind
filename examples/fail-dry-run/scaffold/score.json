@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "run_id": "fail-dry-run",
+  "task": "fixture",
+  "persistence": 0,
+  "rigor": 0,
+  "verdict": "ACCEPT",
+  "quit_early": false,
+  "missing_evidence": false,
+  "dry_run": true,
+  "waivers": [],
+  "artifacts": {
+    "plan.md": true,
+    "critic.md": true,
+    "evidence.md": true,
+    "score.json": true
+  },
+  "notes": "Fixture marked dry_run. No secrets."
+}
