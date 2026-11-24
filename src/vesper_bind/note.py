@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import hashlib
 import json
 import math
+import os
+from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -20,10 +25,23 @@ from vesper_bind.paths import (
 
 NOTE_TEXT = "vesper-bind wrote a receipt."
 STM_CAP = 100
+# vesper-runtime holds an exclusive flock on this file while it rewrites
+# state.json (fork, remember, link, sleep). See its docs/memory.md,
+# "Writers outside this program". The name is the shared contract.
+LOCK_FILENAME = ".lock"
 
 
-def prepare_note(workspace: Path, now: int) -> tuple[str, bytes]:
-    """Return (note id, new state.json bytes). Do not write."""
+@dataclass(frozen=True)
+class PreparedNote:
+    """A note ready to commit, tied to the state.json it was built from."""
+
+    note_id: str
+    data: bytes
+    base_sha256: str
+
+
+def prepare_note(workspace: Path, now: int) -> PreparedNote:
+    """Build the new state.json bytes. Do not write."""
     if isinstance(now, bool) or not isinstance(now, int):
         raise BindError("workspace state cannot take a note")
     root = _workspace_dir(workspace)
@@ -63,22 +81,45 @@ def prepare_note(workspace: Path, now: int) -> tuple[str, bytes]:
         payload = json.dumps(document, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
     except (TypeError, ValueError) as exc:
         raise BindError("workspace state cannot take a note") from exc
-    return note_id, payload.encode("utf-8")
+    return PreparedNote(note_id, payload.encode("utf-8"), record.sha256)
 
 
-def commit_note(workspace: Path, data: bytes) -> None:
-    """Replace state.json. On failure put the previous bytes back."""
+def commit_note(workspace: Path, note: PreparedNote) -> None:
+    """Replace state.json if it is still the file the note was built from.
+
+    Holds the workspace lock so vesper-runtime cannot rewrite state.json
+    between the check and the replace. If anything changed it since
+    prepare_note, refuse instead of overwriting that change. On a failed
+    replace, put the previous bytes back.
+    """
     root = _workspace_dir(workspace)
     state_path = root / "state.json"
-    previous = read_regular(state_path).data
-    try:
-        atomic_replace(root, "state.json", data)
-    except BindError:
+    with _workspace_lock(root):
+        current = read_regular(state_path)
+        if current.sha256 != note.base_sha256:
+            raise BindError("workspace state changed during bind")
         try:
-            atomic_replace(root, "state.json", previous)
+            atomic_replace(root, "state.json", note.data)
         except BindError:
-            pass
-        raise
+            try:
+                atomic_replace(root, "state.json", current.data)
+            except BindError:
+                pass
+            raise
+
+
+@contextlib.contextmanager
+def _workspace_lock(root: Path) -> Iterator[None]:
+    flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC
+    try:
+        fd = os.open(root / LOCK_FILENAME, flags, 0o600)
+    except OSError as exc:
+        raise BindError("workspace state cannot take a note") from exc
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
 
 
 def _workspace_dir(workspace: Path) -> Path:

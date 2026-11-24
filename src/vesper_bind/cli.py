@@ -13,7 +13,7 @@ from pathlib import Path
 from vesper_bind import __version__
 from vesper_bind.errors import BindError
 from vesper_bind.inputs import load_inputs
-from vesper_bind.note import commit_note, prepare_note
+from vesper_bind.note import PreparedNote, commit_note, prepare_note
 from vesper_bind.paths import (
     abspath,
     atomic_create,
@@ -117,10 +117,9 @@ def _bind(args: argparse.Namespace) -> int:
     scaffold = Path(args.scaffold_run)
     # Validate both inputs before any write. A missing workspace also writes nothing.
     bound = load_inputs(hypothesis, scaffold)
-    note_id: str | None = None
-    state_bytes: bytes | None = None
+    note: PreparedNote | None = None
     if args.vesper_workspace:
-        note_id, state_bytes = prepare_note(Path(args.vesper_workspace), int(time.time()))
+        note = prepare_note(Path(args.vesper_workspace), int(time.time()))
     created = datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
     record = bound.hypothesis
     receipt = build_receipt(
@@ -135,7 +134,7 @@ def _bind(args: argparse.Namespace) -> int:
         critic_md_sha256=bound.critic_sha256,
         score_json_sha256=bound.score_sha256,
         pass_flags=bound.pass_flags,
-        vesper_note_id=note_id,
+        vesper_note_id=note.note_id if note is not None else None,
     )
     out_path = abspath(Path(args.out))
     existed = out_path.exists() or out_path.is_symlink()
@@ -143,8 +142,8 @@ def _bind(args: argparse.Namespace) -> int:
     path: Path | None = None
     try:
         path = atomic_create(out, _filename(receipt.created_utc), receipt.to_json().encode("utf-8"))
-        if state_bytes is not None and args.vesper_workspace:
-            commit_note(Path(args.vesper_workspace), state_bytes)
+        if note is not None and args.vesper_workspace:
+            commit_note(Path(args.vesper_workspace), note)
     except Exception:
         if path is not None:
             _unlink_quiet(path)

@@ -152,9 +152,11 @@ vesper-bind --version
 
 ## Optional workspace note
 
-`bind` accepts `--vesper-workspace` with the path of a folder that [vesper-runtime](https://github.com/DagzTagz/vesper-runtime) has already created. The program opens `<workspace>/state.json` only. It appends one note whose text is exactly `vesper-bind wrote a receipt.` The receipt's `vesper_note_id` is the id of that note. The note does not contain the hypothesis text or the receipt path.
+`bind` accepts `--vesper-workspace` with the path of a folder that [vesper-runtime](https://github.com/DagzTagz/vesper-runtime) has already created. The program opens `<workspace>/state.json`, and `<workspace>/.lock` while it writes. It appends one note whose text is exactly `vesper-bind wrote a receipt.` The receipt's `vesper_note_id` is the id of that note. The note does not contain the hypothesis text or the receipt path.
 
-If the directory is missing, is a symbolic link, or has no usable `state.json`, the command exits 1 and writes no receipt. The program does not create a workspace. It does not open `identity/`, a file ending in `.priv`, or `hmac.key`.
+If the directory is missing, is a symbolic link, or has no usable `state.json`, the command exits 1 and writes no receipt.
+
+The note is written while holding an exclusive `flock` on `<workspace>/.lock`, the same lock vesper-runtime holds for `fork`, `remember`, `link` and `sleep`. `.lock` is created at mode `0600` if it is missing, and a symlinked `.lock` is refused. If `state.json` changed between reading it and writing the note, for example because `vesper remember` ran in that window, the command exits 1 with `workspace state changed during bind`. It also removes the receipt it just wrote and leaves the other change in place. Run `bind` again. The program does not create a workspace. It does not open `identity/`, a file ending in `.priv`, or `hmac.key`.
 
 ## What it does not do
 
