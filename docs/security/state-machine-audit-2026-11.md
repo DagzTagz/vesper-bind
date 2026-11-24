@@ -7,10 +7,10 @@ This page is the vesper-bind part of the full disclosure for the November 2026 i
 
 | Finding | Priority | What was wrong | Fix | Status |
 |---|---|---|---|---|
-| F2 | **High** | `bind` accepted a Dagz-Scaffold run that Dagz-Scaffold's own scorer fails, such as `quit_early: true` or `missing_evidence: true`, and wrote a receipt for it. **Reproduced.** The advisory is [ADVISORY-2026-11-24-bind-accepts-failed-scaffold-runs.md](ADVISORY-2026-11-24-bind-accepts-failed-scaffold-runs.md). | [PR #1](https://github.com/DagzTagz/vesper-bind/pull/1), [`d28061c`](https://github.com/DagzTagz/vesper-bind/commit/d28061c) | merged |
-| F13 | Low | `pass_flags` were six literal `true` values instead of the result of the checks they name. | [PR #1](https://github.com/DagzTagz/vesper-bind/pull/1), [`d28061c`](https://github.com/DagzTagz/vesper-bind/commit/d28061c) | merged |
-| F11 | Low | `--vesper-workspace` read `state.json`, and later wrote back the bytes it had prepared, with no lock and no check in between. A `vesper remember` that ran in that window was lost. | [`f948812`](https://github.com/DagzTagz/vesper-bind/commit/f948812) | this PR |
-| F10 | Low | vesper-bind matches dagztagz-hypothesis-engine's retrieval strings (`ok_mock`, `mock://`). Those strings were free text in that repo. | No change here. [dagztagz-hypothesis-engine#4](https://github.com/DagzTagz/dagztagz-hypothesis-engine/pull/4) turns them into enums with the same values and documents them as a stable contract. | upstream PR |
+| F2 | **High** | `bind` accepted a Dagz-Scaffold run that Dagz-Scaffold's own scorer fails, such as `quit_early: true` or `missing_evidence: true`, and wrote a receipt for it. **Reproduced.** The advisory is [ADVISORY-2026-11-24-bind-accepts-failed-scaffold-runs.md](ADVISORY-2026-11-24-bind-accepts-failed-scaffold-runs.md). | [vesper-bind#1](https://github.com/DagzTagz/vesper-bind/pull/1), merge [`c9b4e82`](https://github.com/DagzTagz/vesper-bind/commit/c9b4e82dcdf2ce8d323f4404017180eca487f771) (fix [`d28061c`](https://github.com/DagzTagz/vesper-bind/commit/d28061c)) | Merged |
+| F13 | Low | `pass_flags` were six literal `true` values instead of the result of the checks they name. | [vesper-bind#1](https://github.com/DagzTagz/vesper-bind/pull/1), merge [`c9b4e82`](https://github.com/DagzTagz/vesper-bind/commit/c9b4e82dcdf2ce8d323f4404017180eca487f771) (fix [`d28061c`](https://github.com/DagzTagz/vesper-bind/commit/d28061c)) | Merged |
+| F11 | Low | `--vesper-workspace` read `state.json`, and later wrote back the bytes it had prepared, with no lock and no check in between. A `vesper remember` that ran in that window was lost. | [vesper-bind#2](https://github.com/DagzTagz/vesper-bind/pull/2), merge [`f741c36`](https://github.com/DagzTagz/vesper-bind/commit/f741c3648885a8812ea093ff0c087edca4f8fdc6) (fix [`f948812`](https://github.com/DagzTagz/vesper-bind/commit/f948812)) | Merged |
+| F10 | Low | vesper-bind matches dagztagz-hypothesis-engine's retrieval strings (`ok_mock`, `mock://`). Those strings were free text in that repo. | No change here. [dagztagz-hypothesis-engine#4](https://github.com/DagzTagz/dagztagz-hypothesis-engine/pull/4) turns them into enums with the same values and documents them as a stable contract. | Merged upstream (merge [`3a3f071`](https://github.com/DagzTagz/dagztagz-hypothesis-engine/commit/3a3f07148f7fd88aafbe8b421af0ead43701e519)) |
 
 ## What changed for F11
 
@@ -26,4 +26,4 @@ The audit suggested that vesper-bind could call vesper-runtime's `remember` inst
 
 ## Do I need to do anything?
 
-Update to pick up F2 and F13 (already on `main`) and F11 (this PR). If `bind` reports `workspace state changed during bind`, run it again.
+Update to the current `main` to pick up F2, F13 and F11. If `bind` reports `workspace state changed during bind`, run it again.

@@ -5,7 +5,7 @@
 | **Component** | `src/vesper_bind/inputs.py` (`load_inputs`), used by `vesper-bind bind` |
 | **Audit priority** | High (see [audit rubric](https://github.com/DagzTagz/Dagz-Scaffold/blob/main/docs/audits/2026-11-state-machine-audit.md#2-methodology)). No CVE or CVSS score has been assigned. |
 | **Audited commit** | [`aa1e93c86bf46780106c6410effe9113b454769c`](https://github.com/DagzTagz/vesper-bind/tree/aa1e93c86bf46780106c6410effe9113b454769c) (Dagz-Scaffold compared at [`76edab4`](https://github.com/DagzTagz/Dagz-Scaffold/tree/76edab4b4c93e199034ca1e8fa545c27b79a0a2d)) |
-| **Status** | Fixed in `fix/bind-scaffold-run-state`, pending merge |
+| **Status** | Fixed and merged on `main` in [vesper-bind#1](https://github.com/DagzTagz/vesper-bind/pull/1), merge [`c9b4e82`](https://github.com/DagzTagz/vesper-bind/commit/c9b4e82dcdf2ce8d323f4404017180eca487f771) (2026-11-24) |
 | **Published** | 2026-11-24 |
 | **Type** | Integrity / gate bypass. No code execution, no network access, no data exposure. |
 
@@ -68,7 +68,7 @@ This needs no attacker. Ordinary failed runs trigger it, as the unmodified Scaff
 
 ## Fix
 
-**Status: fixed in `fix/bind-scaffold-run-state`, pending merge.**
+**Status: fixed and merged on `main` in [vesper-bind#1](https://github.com/DagzTagz/vesper-bind/pull/1), merge [`c9b4e82`](https://github.com/DagzTagz/vesper-bind/commit/c9b4e82dcdf2ce8d323f4404017180eca487f771).**
 
 - `load_inputs` now classifies the scaffold run into an explicit `ScaffoldRunState`: `dry_run`, `rejected`, `failed`, `unscored`, or `passed`, checked in that order. Only `passed` binds.
 - `failed`: `score.json` has `quit_early` or `missing_evidence` set to anything other than JSON `false` (a missing field included), or carries `ok` / `fail_reasons` showing a failure; or the scorer result does.
