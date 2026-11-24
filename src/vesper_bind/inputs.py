@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -13,9 +14,34 @@ from vesper_bind.paths import FileRecord, read_jailed_file, read_user_file, real
 from vesper_bind.receipt import PASS_FLAG_KEYS
 
 _SCAFFOLD_FILES = ("plan.md", "evidence.md", "critic.md", "score.json")
+# stdout of Dagz-Scaffold `python3 harness/score.py RUN_DIR`, saved in RUN_DIR.
+SCORER_RESULT = "score-result.json"
+_SAFE_REASON = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_ .:-]{0,63}$")
 _VERDICTS = ("REJECT", "ACCEPT WITH WAIVERS", "ACCEPT")
 _VERDICT_HEADING = re.compile(r"^##[ \t]+VERDICT[ \t]*$", re.M)
 _NEXT_HEADING = re.compile(r"^##[ \t]+", re.M)
+
+
+class ScaffoldRunState(StrEnum):
+    """Terminal state of a Dagz-Scaffold run, checked in this order.
+
+    Only PASSED binds. score.json alone is the agent's claim: Scaffold's own
+    failing examples all say quit_early=false and missing_evidence=false, and
+    only the scorer finds the failure. So a run with no scorer result is
+    UNSCORED, never PASSED.
+    """
+
+    DRY_RUN = "dry_run"  # dry-run marker in score.json or evidence.md
+    REJECTED = "rejected"  # critic verdict REJECT, or score.json disagrees
+    FAILED = "failed"  # score.json or the scorer result records a failure
+    UNSCORED = "unscored"  # no Dagz-Scaffold scorer result in the run folder
+    PASSED = "passed"  # scorer ok with no fail_reasons, for this score.json
+
+
+@dataclass(frozen=True)
+class ScaffoldOutcome:
+    state: ScaffoldRunState
+    reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -27,6 +53,7 @@ class BoundInputs:
     critic_sha256: str
     score_sha256: str
     pass_flags: dict[str, bool]
+    scaffold_state: ScaffoldRunState
 
 
 def load_inputs(hypothesis: Path, scaffold_run: Path) -> BoundInputs:
@@ -45,28 +72,11 @@ def load_inputs(hypothesis: Path, scaffold_run: Path) -> BoundInputs:
     directory = Path(scaffold_run)
     files = {name: read_jailed_file(directory, name) for name in _SCAFFOLD_FILES}
     score = _json_object(files["score.json"].data, "scaffold score.json is unreadable")
-    if _scaffold_dry(score, files["evidence.md"].data):
-        raise BindError("scaffold run is dry-run")
-    verdict = _critic_verdict(files["critic.md"].data)
-    score_verdict = score.get("verdict")
-    if score_verdict is not None:
-        if not isinstance(score_verdict, str) or score_verdict not in _VERDICTS:
-            raise BindError("scaffold critic verdict is missing")
-        if score_verdict != verdict:
-            if "REJECT" in {score_verdict, verdict}:
-                raise BindError("scaffold critic verdict is REJECT")
-            raise BindError("scaffold critic verdict disagrees")
-    if verdict == "REJECT":
-        raise BindError("scaffold critic verdict is REJECT")
+    outcome = scaffold_outcome(directory, score, files)
 
-    flags = {
-        "hypothesis_present": True,
-        "hypothesis_not_dry_run": True,
-        "hypothesis_not_mock": True,
-        "scaffold_score_present": True,
-        "scaffold_not_dry_run": True,
-        "critic_not_reject": True,
-    }
+    flags = pass_flags(hypothesis_dry=dry, hypothesis_mock=mock, scaffold_state=outcome.state)
+    if outcome.state is not ScaffoldRunState.PASSED:
+        raise BindError(outcome.reason)
     if tuple(flags) != PASS_FLAG_KEYS or not all(flags.values()):
         raise BindError("inputs did not pass")
     return BoundInputs(
@@ -77,7 +87,98 @@ def load_inputs(hypothesis: Path, scaffold_run: Path) -> BoundInputs:
         critic_sha256=files["critic.md"].sha256,
         score_sha256=files["score.json"].sha256,
         pass_flags=flags,
+        scaffold_state=outcome.state,
     )
+
+
+def pass_flags(
+    *, hypothesis_dry: bool, hypothesis_mock: bool, scaffold_state: ScaffoldRunState
+) -> dict[str, bool]:
+    """Each flag is true only if its check ran and passed.
+
+    The scaffold checks run in ScaffoldRunState order, so the critic verdict is
+    not evaluated for a dry-run scaffold.
+    """
+    return {
+        # Both files were read and parsed before this is called.
+        "hypothesis_present": True,
+        "hypothesis_not_dry_run": not hypothesis_dry,
+        "hypothesis_not_mock": not hypothesis_mock,
+        "scaffold_score_present": True,
+        "scaffold_not_dry_run": scaffold_state is not ScaffoldRunState.DRY_RUN,
+        "critic_not_reject": scaffold_state
+        not in {ScaffoldRunState.DRY_RUN, ScaffoldRunState.REJECTED},
+    }
+
+
+def scaffold_outcome(
+    directory: Path, score: dict[str, Any], files: dict[str, FileRecord]
+) -> ScaffoldOutcome:
+    """Classify a scaffold run. Fails closed: anything unproven is not PASSED."""
+    if _scaffold_dry(score, files["evidence.md"].data):
+        return ScaffoldOutcome(ScaffoldRunState.DRY_RUN, "scaffold run is dry-run")
+    verdict = _critic_verdict(files["critic.md"].data)
+    score_verdict = score.get("verdict")
+    if score_verdict is not None:
+        if not isinstance(score_verdict, str) or score_verdict not in _VERDICTS:
+            raise BindError("scaffold critic verdict is missing")
+        if score_verdict != verdict:
+            if "REJECT" in {score_verdict, verdict}:
+                return ScaffoldOutcome(
+                    ScaffoldRunState.REJECTED, "scaffold critic verdict is REJECT"
+                )
+            raise BindError("scaffold critic verdict disagrees")
+    if verdict == "REJECT":
+        return ScaffoldOutcome(ScaffoldRunState.REJECTED, "scaffold critic verdict is REJECT")
+
+    # Scaffold's score.py fails these whatever else the run shows. A missing or
+    # non-boolean value is not a pass.
+    if score.get("quit_early") is not False:
+        return ScaffoldOutcome(ScaffoldRunState.FAILED, "scaffold run is quit-early")
+    if score.get("missing_evidence") is not False:
+        return ScaffoldOutcome(ScaffoldRunState.FAILED, "scaffold run is missing evidence")
+    failed = _scorer_failure(score)
+    if failed is not None:
+        return ScaffoldOutcome(ScaffoldRunState.FAILED, failed)
+
+    candidate = directory / SCORER_RESULT
+    if not candidate.exists() and not candidate.is_symlink():
+        return ScaffoldOutcome(
+            ScaffoldRunState.UNSCORED,
+            f"scaffold run has no scorer result ({SCORER_RESULT}). Save the output of "
+            f"Dagz-Scaffold `python3 harness/score.py RUN_DIR` as RUN_DIR/{SCORER_RESULT}",
+        )
+    result = _json_object(
+        read_jailed_file(directory, SCORER_RESULT).data,
+        f"scaffold {SCORER_RESULT} is unreadable",
+    )
+    failed = _scorer_failure(result, required=True)
+    if failed is not None:
+        return ScaffoldOutcome(ScaffoldRunState.FAILED, failed)
+    if result.get("score") != score:
+        return ScaffoldOutcome(
+            ScaffoldRunState.FAILED, "scaffold scorer result does not match score.json"
+        )
+    critic_verdict = result.get("critic_verdict", verdict)
+    if critic_verdict != verdict:
+        return ScaffoldOutcome(
+            ScaffoldRunState.FAILED, "scaffold scorer result does not match critic.md"
+        )
+    return ScaffoldOutcome(ScaffoldRunState.PASSED)
+
+
+def _scorer_failure(document: dict[str, Any], *, required: bool = False) -> str | None:
+    """Message if a Scaffold scorer document is not a pass, else None."""
+    ok = document.get("ok", None if required else True)
+    reasons = document.get("fail_reasons", None if required else [])
+    if ok is True and isinstance(reasons, list) and not reasons:
+        return None
+    message = "scaffold scorer did not pass"
+    if isinstance(reasons, list) and reasons:
+        safe = [r for r in reasons if isinstance(r, str) and _SAFE_REASON.fullmatch(r)]
+        if safe:
+            message += f": {', '.join(safe[:8])}"
+    return message
 
 
 def _json_object(data: bytes, message: str) -> dict[str, Any]:

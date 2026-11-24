@@ -47,9 +47,11 @@ The scaffold object does not contain the markdown text or the score document.
 
 The run is refused when `score.json` is missing, when `dry_run` is not JSON `false` if that key is present, when `notes` starts with `Synthetic dry-run`, when the first non-empty evidence line starts with `DRY-RUN MOCK`, or when the critic verdict is `REJECT`. `## VERDICT` in `critic.md` must be `REJECT`, `ACCEPT WITH WAIVERS`, or `ACCEPT`. If `score.json` also has `verdict`, it must match.
 
+The run is also refused unless it is in the `passed` state: `score.json` has `quit_early` and `missing_evidence` both JSON `false`, and the run folder holds `score-result.json`, the output of Dagz-Scaffold `harness/score.py`, with `ok` JSON `true`, an empty `fail_reasons` list, `score` equal to `score.json`, and `critic_verdict` (when present) equal to the critic verdict. The checks run in the order dry-run, rejected, failed, unscored, passed. `score-result.json` is not hashed into the receipt, because scoring the hashed files again reproduces it. Receipts written before the fix did not require it; see the [2026-11-24 advisory](security/ADVISORY-2026-11-24-bind-accepts-failed-scaffold-runs.md).
+
 ## pass_flags
 
-Each value on a file this program writes is JSON `true`. A reader rejects a flag that is not `true`.
+Each flag is computed from the check it names and is `true` only when that check ran and passed. A receipt is written only when every flag is `true` and the scaffold run is `passed`, so each value on a file this program writes is JSON `true`. A reader rejects a flag that is not `true`. Receipts written before the 2026-11-24 fix did not require a passing scorer result; to trust one of those, score the run again.
 
 | Field | Type | Meaning | Who writes it |
 |-------|------|---------|----------------|

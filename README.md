@@ -34,14 +34,15 @@ The hypothesis path may be a symbolic link only when the target stays inside the
 
 ## The scaffold run directory
 
-`--scaffold-run` is a real directory. The directory itself must not be a symbolic link. It must contain these four files, and each file must stay inside that directory:
+`--scaffold-run` is a real directory. The directory itself must not be a symbolic link. It must contain these five files, and each file must stay inside that directory:
 
 | File | What the program uses it for |
 |------|------------------------------|
 | `plan.md` | The bytes are hashed. The text is not stored. |
 | `evidence.md` | The bytes are hashed. The first non-empty line is also checked for a dry-run mark. |
 | `critic.md` | The bytes are hashed. The section under the heading `## VERDICT` is read. |
-| `score.json` | The bytes are hashed. The object is checked for a dry-run mark and, when it has a `verdict` field, that field is compared with the critic. |
+| `score.json` | The bytes are hashed. The object is checked for a dry-run mark and, when it has a `verdict` field, that field is compared with the critic. `quit_early` and `missing_evidence` must both be JSON `false`. |
+| `score-result.json` | The JSON that Dagz-Scaffold's scorer prints: `python3 harness/score.py RUN_DIR > RUN_DIR/score-result.json`. `ok` must be JSON `true`, `fail_reasons` must be an empty list, and `score` must equal `score.json`. It is read, not hashed: anyone can recompute it by scoring the hashed files again. |
 
 The section under `## VERDICT` must contain a line that is `REJECT`, `ACCEPT WITH WAIVERS`, or `ACCEPT`. Blank lines and wrapping `*` or backticks are ignored when that line is read. `REJECT` stops the command. `ACCEPT` and `ACCEPT WITH WAIVERS` are allowed. If `score.json` has a `verdict` field, it must be that same line. A disagreement exits 1. The standard-error line is `scaffold critic verdict is REJECT` when either side is `REJECT`, and `scaffold critic verdict disagrees` otherwise.
 
@@ -50,6 +51,8 @@ The run is also refused, with `scaffold run is dry-run`, when any of these is tr
 - `score.json` has a `dry_run` field whose value is anything other than JSON `false`. A score file with no `dry_run` field is not refused for that reason.
 - The `notes` string in `score.json` starts with `Synthetic dry-run`.
 - The first non-empty line of `evidence.md` starts with `DRY-RUN MOCK`.
+
+The run is refused, with `scaffold run is quit-early` or `scaffold run is missing evidence`, when `score.json` has `quit_early` or `missing_evidence` set to anything other than JSON `false`, including a missing field. A run with no `score-result.json` exits 1 with `scaffold run has no scorer result`. A scorer result that is not a pass exits 1 with `scaffold scorer did not pass` and its fail reasons. A scorer result for a different `score.json` or critic verdict exits 1 with `scaffold scorer result does not match`. `score.json` holds the agent's claims, and Dagz-Scaffold's own failing examples all claim `quit_early: false`; only the scorer finds those failures, so vesper-bind binds only a run the scorer passed. See the [2026-11-24 advisory](docs/security/ADVISORY-2026-11-24-bind-accepts-failed-scaffold-runs.md).
 
 A missing `score.json` exits 1 with `scaffold score.json is missing`. Each file is refused when it is larger than 8 MiB (8 × 1024 × 1024 bytes). A file of exactly that size is accepted.
 
@@ -79,7 +82,7 @@ In the file, `hypothesis`, `scaffold`, and `pass_flags` are objects. `show` prin
 | `scaffold.evidence_md_sha256` | sha256 digest of `evidence.md`. |
 | `scaffold.critic_md_sha256` | sha256 digest of `critic.md`. |
 | `scaffold.score_json_sha256` | sha256 digest of `score.json`. |
-| `pass_flags` | Six checks. On a file this program wrote, each one is JSON `true`. |
+| `pass_flags` | Six checks, each computed from the check it names. A receipt is written only when all six are `true` and the Dagz-Scaffold scorer result passed, so on a file this program wrote each one is JSON `true`. |
 | `vesper_note_id` | The note id, or JSON `null` when you did not pass a workspace. |
 
 | Pass flag | The check that passed |

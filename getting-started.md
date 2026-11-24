@@ -27,7 +27,7 @@ The steps below use the fixtures in this repository. They contain no secrets. Ru
 
    Expected exit code: 0. Stdout is one line: the absolute path of `receipts/<UTC>-receipt.json`. The file mode is `0600`. The directory mode is `0700`.
 
-   A hypothesis marked dry-run or mock, or a scaffold whose `score.json` is missing, whose `dry_run` is true, or whose critic verdict is `REJECT`, exits 1 and writes no receipt.
+   A hypothesis marked dry-run or mock, or a scaffold whose `score.json` is missing, whose `dry_run` is true, whose critic verdict is `REJECT`, whose `quit_early` or `missing_evidence` is not `false`, or which has no passing Dagz-Scaffold scorer result in `score-result.json`, exits 1 and writes no receipt. To bind a real run, save the scorer's output first: `python3 harness/score.py RUN_DIR > RUN_DIR/score-result.json`.
 
 ## Read and check a receipt
 
