@@ -78,7 +78,7 @@ The note text is `vesper-bind wrote a receipt.` The id is `m-` plus the first 16
 ```text
 schema: vesper-bind/receipt/v1
 created_utc: YYYY-MM-DDTHH:MM:SSZ
-tool_version: 0.1.0
+tool_version: 0.2.0
 hypothesis.path: /absolute/path
 hypothesis.size: 0
 hypothesis.mtime_utc: YYYY-MM-DDTHH:MM:SSZ
