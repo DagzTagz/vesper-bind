@@ -84,7 +84,7 @@ After the fix, the reproduction above refuses all 11 of Dagz-Scaffold's failing 
 
 ## Follow-up, 2026-11-25: scorer attestation (residual item S7)
 
-**Status: Open** (pull request pending review). The limit above was reproduced in the shared-compute review: replacing `evidence.md` with one line and typing a matching `score-result.json` by hand was still bound.
+**Status: Merged** in [vesper-bind#4](https://github.com/DagzTagz/vesper-bind/pull/4), merge [`b2f059a`](https://github.com/DagzTagz/vesper-bind/commit/b2f059ab3adc05f0ab4925a0af87d93646bc7e36) (fix [`36fbb2c`](https://github.com/DagzTagz/vesper-bind/commit/36fbb2c049ff1353c74aa5814e9ff59d506fedf3)). The limit above was reproduced in the shared-compute review: replacing `evidence.md` with one line and typing a matching `score-result.json` by hand was still bound.
 
 The follow-up makes `bind` and `--dry-run` require an HMAC-SHA256 `attestation` written by Dagz-Scaffold `score.py --attest-key KEY` and checked with the same key (`--scorer-key` or `DAGZ_SCORER_KEY_FILE`). The attestation covers the scorer's whole result and the SHA-256 of the four packet files. A hand-written, edited, or other-key result, or a packet file changed after scoring, is refused as `unattested`.
 

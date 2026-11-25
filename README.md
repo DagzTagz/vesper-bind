@@ -2,7 +2,7 @@
 
 Unofficial DagzTagz command-line program. Not an xAI, SpaceXAI, or Grok product.
 
-**Status:** v0.1.0. Apache-2.0. Python 3.11 or newer.
+**Status:** v0.2.0. Apache-2.0. Python 3.11 or newer.
 
 vesper-bind does not call Grok and does not train a model.
 
@@ -82,7 +82,7 @@ In the file, `hypothesis`, `scaffold`, and `pass_flags` are objects. `show` prin
 |-------|----------------|
 | `schema` | The string `vesper-bind/receipt/v1`. |
 | `created_utc` | The UTC time of the write, `YYYY-MM-DDTHH:MM:SSZ`. |
-| `tool_version` | The program version. This release is `0.1.0`. |
+| `tool_version` | The program version. This release is `0.2.0`. |
 | `hypothesis.path` | Absolute path of the hypothesis file that was hashed. |
 | `hypothesis.size` | Size of that file, in bytes. |
 | `hypothesis.mtime_utc` | Last modification time of that file, UTC, to the whole second. The fractional part is dropped. |
@@ -159,7 +159,7 @@ vesper-bind --help
 vesper-bind --version
 ```
 
-`--help` exits 0 and lists the commands. `--version` exits 0 and prints `vesper-bind 0.1.0`.
+`--help` exits 0 and lists the commands. `--version` exits 0 and prints `vesper-bind 0.2.0`.
 
 ## Optional workspace note
 
