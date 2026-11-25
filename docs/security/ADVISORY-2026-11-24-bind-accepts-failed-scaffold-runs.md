@@ -82,6 +82,16 @@ After the fix, the reproduction above refuses all 11 of Dagz-Scaffold's failing 
 
 **Limit:** `score-result.json` is written next to the agent's own files, so it is a check that the scorer was run and passed, not a signature. The receipt hashes the four inputs, so anyone can score them again to confirm it. An explicit, versioned run state written by Dagz-Scaffold itself remains the longer-term design (audit F2).
 
+## Follow-up, 2026-11-25: scorer attestation (residual item S7)
+
+**Status: Open** (pull request pending review). The limit above was reproduced in the shared-compute review: replacing `evidence.md` with one line and typing a matching `score-result.json` by hand was still bound.
+
+The follow-up makes `bind` and `--dry-run` require an HMAC-SHA256 `attestation` written by Dagz-Scaffold `score.py --attest-key KEY` and checked with the same key (`--scorer-key` or `DAGZ_SCORER_KEY_FILE`). The attestation covers the scorer's whole result and the SHA-256 of the four packet files. A hand-written, edited, or other-key result, or a packet file changed after scoring, is refused as `unattested`.
+
+**Trust assumption:** the key is a shared secret between the account that scores and the account that binds. It stops forgery only by an agent that cannot read the key. Agents running under the same operating-system account as the scorer can read it, and for them nothing changes.
+
+**Migration:** make a key once (`python3 harness/attest.py keygen ~/.config/dagz-scaffold/scorer.key` in Dagz-Scaffold), score each run you want to bind again with `--attest-key`, and pass the key to vesper-bind. Receipts already written keep verifying: `verify` checks only the receipt's digests and does not read `score-result.json`.
+
 ## Credit and methodology
 
 Found during a self-audit by the DagzTagz maintainers, assisted by an AI agent, of the five public DagzTagz repositories at their default-branch HEADs. The audit looked for implicit state machines (lifecycles encoded as flags, `None` sentinels, or status strings). This issue is finding **F2**, with **F13** as a contributing factor. It was reproduced by running the code at the audited commits.

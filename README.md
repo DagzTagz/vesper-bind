@@ -42,7 +42,7 @@ The hypothesis path may be a symbolic link only when the target stays inside the
 | `evidence.md` | The bytes are hashed. The first non-empty line is also checked for a dry-run mark. |
 | `critic.md` | The bytes are hashed. The section under the heading `## VERDICT` is read. |
 | `score.json` | The bytes are hashed. The object is checked for a dry-run mark and, when it has a `verdict` field, that field is compared with the critic. `quit_early` and `missing_evidence` must both be JSON `false`. |
-| `score-result.json` | The JSON that Dagz-Scaffold's scorer prints: `python3 harness/score.py RUN_DIR > RUN_DIR/score-result.json`. `ok` must be JSON `true`, `fail_reasons` must be an empty list, and `score` must equal `score.json`. It is read, not hashed: anyone can recompute it by scoring the hashed files again. |
+| `score-result.json` | The JSON that Dagz-Scaffold's scorer prints with an attestation: `python3 harness/score.py --attest-key KEY RUN_DIR > RUN_DIR/score-result.json`. Its `attestation` must verify with your scorer key (see [The scorer key](#the-scorer-key)) and must name the exact bytes of the other four files. `ok` must be JSON `true`, `fail_reasons` must be an empty list, and `score` must equal `score.json`. It is read, not hashed into the receipt. |
 
 The section under `## VERDICT` must contain a line that is `REJECT`, `ACCEPT WITH WAIVERS`, or `ACCEPT`. Blank lines and wrapping `*` or backticks are ignored when that line is read. `REJECT` stops the command. `ACCEPT` and `ACCEPT WITH WAIVERS` are allowed. If `score.json` has a `verdict` field, it must be that same line. A disagreement exits 1. The standard-error line is `scaffold critic verdict is REJECT` when either side is `REJECT`, and `scaffold critic verdict disagrees` otherwise.
 
@@ -52,9 +52,19 @@ The run is also refused, with `scaffold run is dry-run`, when any of these is tr
 - The `notes` string in `score.json` starts with `Synthetic dry-run`.
 - The first non-empty line of `evidence.md` starts with `DRY-RUN MOCK`.
 
-The run is refused, with `scaffold run is quit-early` or `scaffold run is missing evidence`, when `score.json` has `quit_early` or `missing_evidence` set to anything other than JSON `false`, including a missing field. A run with no `score-result.json` exits 1 with `scaffold run has no scorer result`. A scorer result that is not a pass exits 1 with `scaffold scorer did not pass` and its fail reasons. A scorer result for a different `score.json` or critic verdict exits 1 with `scaffold scorer result does not match`. `score.json` holds the agent's claims, and Dagz-Scaffold's own failing examples all claim `quit_early: false`; only the scorer finds those failures, so vesper-bind binds only a run the scorer passed. See the [2026-11-24 advisory](docs/security/ADVISORY-2026-11-24-bind-accepts-failed-scaffold-runs.md).
+The run is refused, with `scaffold run is quit-early` or `scaffold run is missing evidence`, when `score.json` has `quit_early` or `missing_evidence` set to anything other than JSON `false`, including a missing field. A run with no `score-result.json` exits 1 with `scaffold run has no scorer result`. A scorer result that is not a pass exits 1 with `scaffold scorer did not pass` and its fail reasons. A scorer result for a different `score.json` or critic verdict exits 1 with `scaffold scorer result does not match`. A scorer result with no attestation exits 1 with `scaffold scorer result is not attested`. One that was edited exits 1 with `scaffold scorer attestation does not match (edited or forged)`, one made with another key exits 1 with `attested with a different scorer key`, and a packet file that changed after scoring exits 1 with `scaffold <file> changed after it was scored`. The attestation is checked before anything else in `score-result.json` is trusted. `score.json` holds the agent's claims, and Dagz-Scaffold's own failing examples all claim `quit_early: false`; only the scorer finds those failures, so vesper-bind binds only a run the scorer passed. See the [2026-11-24 advisory](docs/security/ADVISORY-2026-11-24-bind-accepts-failed-scaffold-runs.md).
 
 A missing `score.json` exits 1 with `scaffold score.json is missing`. Each file is refused when it is larger than 8 MiB (8 × 1024 × 1024 bytes). A file of exactly that size is accepted.
+
+## The scorer key
+
+`score-result.json` is plain JSON in a folder the agent can write, so on its own it is easy to type by hand. Since this change, vesper-bind accepts it only when Dagz-Scaffold's scorer attested it with an HMAC-SHA256 key, and you give vesper-bind the same key with `--scorer-key PATH` or the `DAGZ_SCORER_KEY_FILE` environment variable. `bind` and `--dry-run` both need it. Without a key they exit 1 with `a scorer key is required`.
+
+The key file must be a regular file (not a symbolic link) owned by you, mode `0600` or `0400`, holding at least 32 bytes as hex text, and it must not be inside the scaffold run directory. Dagz-Scaffold's `python3 harness/attest.py keygen PATH` makes one. The attestation covers the scorer's whole result and the SHA-256 of `plan.md`, `evidence.md`, `critic.md` and `score.json`; vesper-bind compares those digests with the bytes it hashes for the receipt. The format is described in Dagz-Scaffold's [docs/scorer.md](https://github.com/DagzTagz/Dagz-Scaffold/blob/main/docs/scorer.md#attesting-a-score-for-vesper-bind).
+
+**Trust assumption, stated plainly.** This is a shared secret, not a public signature. Anyone who can read the key can produce a valid attestation for any result. It stops forgery only when the agent that wrote the run folder cannot read the key: run agents under a different operating-system account from the one that scores and binds, or keep the key where agents cannot reach it. If every agent runs under the same account as the scorer, the key is readable and the attestation adds nothing. We chose HMAC because Dagz-Scaffold's harness is standard-library Python only, and the standard library has no public-key signatures.
+
+`examples/demo-scorer.key` is a public demo key that attested `examples/passing`. It exists so the examples run. Never use it for a real run.
 
 ## The receipt
 
@@ -106,11 +116,12 @@ Every refusal exits 1. The message goes to standard error and starts with `vespe
 
 ```bash
 vesper-bind --dry-run \
+  --scorer-key ~/vesper-bind-demo-scorer.key \
   --hypothesis examples/passing/hypothesis.json \
   --scaffold-run examples/passing/scaffold
 ```
 
-This reads both inputs, runs the same checks as `bind`, and prints one receipt on standard output. It creates no file and no directory. `vesper_note_id` is JSON `null`, because this form does not take `--vesper-workspace`. Exit 0 means both inputs passed. Exit 1 means a check failed and nothing was written. Combining `--dry-run` with `bind`, `show`, `verify`, or `--vesper-workspace` exits 1.
+The demo key has to be copied to a `0600` file first; see [getting-started.md](getting-started.md). This reads both inputs, runs the same checks as `bind`, and prints one receipt on standard output. It creates no file and no directory. `vesper_note_id` is JSON `null`, because this form does not take `--vesper-workspace`. Exit 0 means both inputs passed. Exit 1 means a check failed and nothing was written. Combining `--dry-run` with `bind`, `show`, `verify`, or `--vesper-workspace` exits 1.
 
 ### Write one receipt with `bind`
 
@@ -121,7 +132,7 @@ vesper-bind bind \
   --out receipts
 ```
 
-`--hypothesis`, `--scaffold-run`, and `--out` are required. Exit 0 prints one line on standard output: the absolute path of the new receipt. Exit 1 writes no receipt. `receipts/` is listed in `.gitignore`, so a receipt you create there is not part of a later commit.
+`--hypothesis`, `--scaffold-run`, and `--out` are required, plus a scorer key from `--scorer-key` or `DAGZ_SCORER_KEY_FILE`. Exit 0 prints one line on standard output: the absolute path of the new receipt. Exit 1 writes no receipt. `receipts/` is listed in `.gitignore`, so a receipt you create there is not part of a later commit.
 
 The fixtures in `examples/passing/` are synthetic and contain no secrets. `examples/fail-dry-run/` is a run that `bind` must refuse. The numbered steps, with the expected exit code after each one, are in [getting-started.md](getting-started.md).
 

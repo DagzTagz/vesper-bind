@@ -6,6 +6,13 @@ The steps below use the fixtures in this repository. They contain no secrets. Ru
 
 ## Create a receipt
 
+0. Give the demo scorer key to your shell. `examples/demo-scorer.key` is a **public** key that attested the synthetic example run. It proves nothing about a real run, so never use it for one. A scorer key has to be mode `0600` or `0400`, and git checks files out with wider modes, so copy it first:
+
+   ```bash
+   install -m 600 examples/demo-scorer.key ~/vesper-bind-demo-scorer.key
+   export DAGZ_SCORER_KEY_FILE=~/vesper-bind-demo-scorer.key
+   ```
+
 1. Dry-run. This prints a receipt and writes nothing.
 
    ```bash
@@ -27,7 +34,7 @@ The steps below use the fixtures in this repository. They contain no secrets. Ru
 
    Expected exit code: 0. Stdout is one line: the absolute path of `receipts/<UTC>-receipt.json`. The file mode is `0600`. The directory mode is `0700`.
 
-   A hypothesis marked dry-run or mock, or a scaffold whose `score.json` is missing, whose `dry_run` is true, whose critic verdict is `REJECT`, whose `quit_early` or `missing_evidence` is not `false`, or which has no passing Dagz-Scaffold scorer result in `score-result.json`, exits 1 and writes no receipt. To bind a real run, save the scorer's output first: `python3 harness/score.py RUN_DIR > RUN_DIR/score-result.json`.
+   A hypothesis marked dry-run or mock, or a scaffold whose `score.json` is missing, whose `dry_run` is true, whose critic verdict is `REJECT`, whose `quit_early` or `missing_evidence` is not `false`, or which has no passing Dagz-Scaffold scorer result in `score-result.json` attested with your scorer key, exits 1 and writes no receipt. To bind a real run, make your own scorer key once in Dagz-Scaffold (`python3 harness/attest.py keygen ~/.config/dagz-scaffold/scorer.key`), save the scorer's attested output (`python3 harness/score.py --attest-key ~/.config/dagz-scaffold/scorer.key RUN_DIR > RUN_DIR/score-result.json`), and point `DAGZ_SCORER_KEY_FILE` or `--scorer-key` at the same key.
 
 ## Read and check a receipt
 

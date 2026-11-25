@@ -20,5 +20,17 @@
       "score.json": true
     },
     "notes": "Synthetic passing fixture. No secrets."
+  },
+  "attestation": {
+    "schema": "dagz-scaffold/score-attestation/v1",
+    "alg": "hmac-sha256",
+    "kid": "5626db1fe843c085",
+    "inputs": {
+      "plan.md": "f6b3615d90195558b338ea184dd1a64778778487a8ecc4889fd2da4fb5d49fa2",
+      "evidence.md": "7666340362d65f06b04bcec7cd0db76c73f108c2251a832861b34a509b46987c",
+      "critic.md": "a1c58465bd2a6ccdf067ae0755b2f471e05f302b95dd35513320fe17d2af5e20",
+      "score.json": "ba54fbd47656ecc906b9dbf3accf7ede85207419b028729cf5056b009ff96c8a"
+    },
+    "mac": "a719247406a94a4a5a7c5858bee0dab551a4dbec2b4827516da3bada62ba03c0"
   }
 }

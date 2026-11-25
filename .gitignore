@@ -20,6 +20,8 @@ hmac.key
 .envrc
 *.pem
 *.key
+# Public demo scorer key for the synthetic examples. Never a real key.
+!examples/demo-scorer.key
 *.p12
 *.pfx
 id_rsa*

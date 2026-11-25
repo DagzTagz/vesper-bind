@@ -38,4 +38,4 @@ That is the compliance posture: data minimization and local processing. It is an
 
 ## Out of scope
 
-This program is not a defense against someone who can already read the operator's files, against root, or against a disk image taken while the process is running. Unlink does not wipe free space.
+This program is not a defense against someone who can already read the operator's files, against root, or against a disk image taken while the process is running. In particular, the scorer key is a shared secret: an agent that can read it (for example because it runs under the same operating-system account as the scorer) can attest a forged `score-result.json`. Keep agents on a different account from the key. Unlink does not wipe free space.
