@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from vesper_bind import __version__
+from vesper_bind.attestation import KEY_ENV, key_path_from, read_scorer_key
 from vesper_bind.errors import BindError
 from vesper_bind.inputs import load_inputs
 from vesper_bind.note import PreparedNote, commit_note, prepare_note
@@ -57,6 +58,15 @@ def run(argv: list[str] | None = None) -> int:
         return 1
 
 
+_SCORER_KEY_HELP = (
+    f"Dagz-Scaffold scorer key that attested score-result.json (default: ${KEY_ENV})"
+)
+
+
+def _scorer_key(flag: str | None, scaffold: Path) -> bytes:
+    return read_scorer_key(key_path_from(flag), not_inside=(scaffold,))
+
+
 def build_parser() -> Parser:
     parser = Parser(
         prog="vesper-bind",
@@ -69,6 +79,7 @@ def build_parser() -> Parser:
     parser.add_argument("--dry-run", action="store_true", help="print a receipt and write nothing")
     parser.add_argument("--hypothesis", help="hypothesis JSON file")
     parser.add_argument("--scaffold-run", help="Dagz-Scaffold run directory")
+    parser.add_argument("--scorer-key", default=None, help=_SCORER_KEY_HELP)
     sub = parser.add_subparsers(dest="command")
 
     bind = sub.add_parser("bind", help="write one receipt when both inputs pass")
@@ -76,6 +87,7 @@ def build_parser() -> Parser:
     bind.add_argument("--scaffold-run", required=True)
     bind.add_argument("--out", required=True)
     bind.add_argument("--vesper-workspace", default=None)
+    bind.add_argument("--scorer-key", default=argparse.SUPPRESS, help=_SCORER_KEY_HELP)
 
     verify = sub.add_parser("verify", help="recompute digests and check mode 0600")
     verify.add_argument("receipt")
@@ -99,7 +111,9 @@ def _dispatch(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
-        receipt = _receipt_from_inputs(Path(args.hypothesis), Path(args.scaffold_run), None)
+        scaffold = Path(args.scaffold_run)
+        key = _scorer_key(args.scorer_key, scaffold)
+        receipt = _receipt_from_inputs(Path(args.hypothesis), scaffold, None, key)
         sys.stdout.write(receipt.to_json())
         return 0
     if args.command == "bind":
@@ -116,7 +130,8 @@ def _bind(args: argparse.Namespace) -> int:
     hypothesis = Path(args.hypothesis)
     scaffold = Path(args.scaffold_run)
     # Validate both inputs before any write. A missing workspace also writes nothing.
-    bound = load_inputs(hypothesis, scaffold)
+    key = _scorer_key(args.scorer_key, scaffold)
+    bound = load_inputs(hypothesis, scaffold, scorer_key=key)
     note: PreparedNote | None = None
     if args.vesper_workspace:
         note = prepare_note(Path(args.vesper_workspace), int(time.time()))
@@ -169,8 +184,10 @@ def _unlink_quiet(path: Path) -> None:
         pass
 
 
-def _receipt_from_inputs(hypothesis: Path, scaffold: Path, note_id: str | None) -> Receipt:
-    bound = load_inputs(hypothesis, scaffold)
+def _receipt_from_inputs(
+    hypothesis: Path, scaffold: Path, note_id: str | None, scorer_key: bytes
+) -> Receipt:
+    bound = load_inputs(hypothesis, scaffold, scorer_key=scorer_key)
     created = datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
     record = bound.hypothesis
     return build_receipt(

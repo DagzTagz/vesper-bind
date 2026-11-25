@@ -9,6 +9,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from vesper_bind.attestation import verify_attestation
 from vesper_bind.errors import BindError
 from vesper_bind.paths import FileRecord, read_jailed_file, read_user_file, realpath
 from vesper_bind.receipt import PASS_FLAG_KEYS
@@ -28,14 +29,17 @@ class ScaffoldRunState(StrEnum):
     Only PASSED binds. score.json alone is the agent's claim: Scaffold's own
     failing examples all say quit_early=false and missing_evidence=false, and
     only the scorer finds the failure. So a run with no scorer result is
-    UNSCORED, never PASSED.
+    UNSCORED, never PASSED. A score-result.json is plain JSON that anyone with
+    write access to the run folder can type, so a result without a valid
+    scorer attestation (HMAC with the scorer key) is UNATTESTED, never PASSED.
     """
 
     DRY_RUN = "dry_run"  # dry-run marker in score.json or evidence.md
     REJECTED = "rejected"  # critic verdict REJECT, or score.json disagrees
     FAILED = "failed"  # score.json or the scorer result records a failure
     UNSCORED = "unscored"  # no Dagz-Scaffold scorer result in the run folder
-    PASSED = "passed"  # scorer ok with no fail_reasons, for this score.json
+    UNATTESTED = "unattested"  # scorer result lacks a valid attestation for these files
+    PASSED = "passed"  # attested scorer ok with no fail_reasons, for this score.json
 
 
 @dataclass(frozen=True)
@@ -56,7 +60,7 @@ class BoundInputs:
     scaffold_state: ScaffoldRunState
 
 
-def load_inputs(hypothesis: Path, scaffold_run: Path) -> BoundInputs:
+def load_inputs(hypothesis: Path, scaffold_run: Path, *, scorer_key: bytes) -> BoundInputs:
     hypothesis_record = read_user_file(
         hypothesis,
         missing="hypothesis file is missing",
@@ -72,7 +76,7 @@ def load_inputs(hypothesis: Path, scaffold_run: Path) -> BoundInputs:
     directory = Path(scaffold_run)
     files = {name: read_jailed_file(directory, name) for name in _SCAFFOLD_FILES}
     score = _json_object(files["score.json"].data, "scaffold score.json is unreadable")
-    outcome = scaffold_outcome(directory, score, files)
+    outcome = scaffold_outcome(directory, score, files, scorer_key=scorer_key)
 
     flags = pass_flags(hypothesis_dry=dry, hypothesis_mock=mock, scaffold_state=outcome.state)
     if outcome.state is not ScaffoldRunState.PASSED:
@@ -112,7 +116,11 @@ def pass_flags(
 
 
 def scaffold_outcome(
-    directory: Path, score: dict[str, Any], files: dict[str, FileRecord]
+    directory: Path,
+    score: dict[str, Any],
+    files: dict[str, FileRecord],
+    *,
+    scorer_key: bytes,
 ) -> ScaffoldOutcome:
     """Classify a scaffold run. Fails closed: anything unproven is not PASSED."""
     if _scaffold_dry(score, files["evidence.md"].data):
@@ -152,6 +160,12 @@ def scaffold_outcome(
         read_jailed_file(directory, SCORER_RESULT).data,
         f"scaffold {SCORER_RESULT} is unreadable",
     )
+    # Authenticity first: nothing in an unattested result is trusted. The
+    # digests are of the bytes read above, the same bytes the receipt hashes.
+    try:
+        verify_attestation(result, {name: files[name].sha256 for name in files}, scorer_key)
+    except BindError as exc:
+        return ScaffoldOutcome(ScaffoldRunState.UNATTESTED, str(exc))
     failed = _scorer_failure(result, required=True)
     if failed is not None:
         return ScaffoldOutcome(ScaffoldRunState.FAILED, failed)
